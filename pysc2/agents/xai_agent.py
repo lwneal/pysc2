@@ -22,13 +22,26 @@ _SELECT_ALL = [0]
 
 
 class HelloWorldAgent(base_agent.BaseAgent):
-  """An agent specifically for solving the MoveToBeacon map."""
 
   def step(self, obs):
     super(HelloWorldAgent, self).step(obs)
+    if _MOVE_SCREEN in obs.observation["available_actions"]:
+      player_relative = obs.observation["screen"][_PLAYER_RELATIVE]
+      neutral_y, neutral_x = (player_relative == _PLAYER_NEUTRAL).nonzero()
+      player_y, player_x = (player_relative == _PLAYER_FRIENDLY).nonzero()
+      if not neutral_y.any() or not player_y.any():
+        return actions.FunctionCall(_NO_OP, [])
+      player = [int(player_x.mean()), int(player_y.mean())]
+      closest, min_dist = None, None
+      for p in zip(neutral_x, neutral_y):
+        dist = numpy.linalg.norm(numpy.array(player) - numpy.array(p))
+        if not min_dist or dist < min_dist:
+          closest, min_dist = p, dist
+      return actions.FunctionCall(_MOVE_SCREEN, [_NOT_QUEUED, closest])
+    #return actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
     imutil.show(obs.observation['screen'])
     function_id = numpy.random.choice(obs.observation["available_actions"])
-    import pdb; pdb.set_trace()
     args = [[numpy.random.randint(0, size) for size in arg.sizes]
             for arg in self.action_spec.functions[function_id].args]
+    print('action {} args {}'.format(function_id, args))
     return actions.FunctionCall(function_id, args)
